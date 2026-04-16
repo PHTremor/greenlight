@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -56,6 +59,79 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data envelo
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	w.Write(js)
+
+	return nil
+}
+
+func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	// limit the size of the request body to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1_048_576)
+
+	// return an error for any fields that can not be mapped to the target destination
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	//  Decode the request body into the target destination
+	err := dec.Decode(dst)
+	if err != nil {
+		var syntaxError *json.SyntaxError
+		var unmarshalTypeError *json.UnmarshalTypeError
+		var invalidUnmarshalError *json.InvalidUnmarshalError
+		var maxBytesError *http.MaxBytesError
+
+		switch {
+		// err has type syntaxError
+		case errors.As(err, &syntaxError):
+			return fmt.Errorf("body contains badly formed JSON (at character %d)", syntaxError.Offset)
+
+		// decode returns io.ErrUnexpectedEOF for syntax errors in JSON
+		// return a generic message
+		// follow the issue: https://github.com/golang/go/issues/25956
+		case errors.Is(err, io.ErrUnexpectedEOF):
+			return errors.New("body contains badly formed JSON")
+
+		// unmarshalTypeError happens when the JSON value is the wrong type for the target destination
+		// includes a specific field if the error relates to one
+		case errors.As(err, &unmarshalTypeError):
+			if unmarshalTypeError.Field != "" {
+				return fmt.Errorf("body contains incorrect JSON type on field %q", unmarshalTypeError.Field)
+			}
+
+			return fmt.Errorf("body contains incorrect JSON type (at character %d)", unmarshalTypeError.Offset)
+
+		// Decode returns io.EOF when the request body is empty
+		case errors.Is(err, io.EOF):
+			return fmt.Errorf("body must not be empty")
+
+		// Decode() will now return an error message in the format "json: unknown ield "<name>"".
+		// extract the field name & interporate it in our custome error
+		// there's an open issue at https://github.com/golang/go/issues/29035
+		// regarding turning this into a distinct error type
+		case strings.HasPrefix(err.Error(), "json: unknown field "):
+			fieldname := strings.TrimPrefix(err.Error(), "json: unknown field")
+			return fmt.Errorf("body contains unknown key %s", fieldname)
+
+		// check maxByteErrors, body shouldn't exceed 1MB
+		case errors.As(err, &maxBytesError):
+			return fmt.Errorf("body must not be larger than %d bytes", maxBytesError.Limit)
+
+		// invalidUnmarshalError is returned when we pass a non-nil pointer to Decode
+		// This doesnt need to happen, so we panic
+		case errors.As(err, &invalidUnmarshalError):
+			panic(err)
+
+		// for anything else, return as is
+		default:
+			return err
+		}
+	}
+
+	// call Decode() using a pointer to an anonymous struct at the destination
+	// a single JSON value will return an io.EOF error
+	// anything else means there's additional data in the request body
+	err = dec.Decode(&struct{}{})
+	if !errors.Is(err, io.EOF) {
+		return errors.New("body must only contain a single JSON value")
+	}
 
 	return nil
 }
