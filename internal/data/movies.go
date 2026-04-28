@@ -1,7 +1,10 @@
 package data
 
 import (
+	"database/sql"
 	"time"
+
+	"github.com/lib/pq"
 
 	"github.com/PHTremor/greenlight.git/internal/validator"
 )
@@ -38,4 +41,41 @@ func ValidateMovie(v *validator.Validator, movie *Movie) {
 	v.Check(len(movie.Genres) >= 1, "genres", "must not contain more that 5 genre")
 	// use the Unique helper to make sure the genres are unique
 	v.Check(validator.Unique(movie.Genres), "genres", "must not contain duplicate values")
+}
+
+// Define a MovieModel stuct that wraps a sql.DB connection pool
+type MovieModel struct {
+	DB *sql.DB
+}
+
+// Inserting a new recors in the movies table
+func (m MovieModel) Insert(movie *Movie) error {
+	// SQL query for inserting a new record & returning system generated data
+	query := `
+	INSERT INTO movies (title, year, runtime, genres)
+	VALUES ($1, $2, $3, $4)
+	RETURNING id, created_at, version
+	`
+
+	// create an arg slice containing the values for the placeholder parameters in the SQL query
+	args := []any{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
+
+	// Use QueryRow() method to execute the query on the connection pool
+	// Scan the system generated values into the Movie struct
+	return m.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+}
+
+// Fetching a specific record in the movies table
+func (m MovieModel) Get(id int64) (*Movie, error) {
+	return nil, nil
+}
+
+// Updating a specific record in the movies table
+func (m MovieModel) Update(movie *Movie) error {
+	return nil
+}
+
+// Deleting a specific record in the movies table
+func (m MovieModel) Delete(id int64) error {
+	return nil
 }

@@ -46,7 +46,24 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	fmt.Fprintf(w, "%+v\n", input)
+	// call the Insert() method to save the movie record in the database
+	err = app.models.Movies.Insert(movie)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// include a Location header in the response to help the clint know where to find the created record
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/movies/%d", movie.ID))
+
+	// write a JSON response with a 201 created status code, the movie data in the response body
+	// and the Location header.
+	err = app.writeJSON(w, http.StatusCreated, envelope{"movie": movie}, headers)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
 }
 
 // add a showMovieHandler for the "GET /v1/movies/:id" endpoint
