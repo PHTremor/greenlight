@@ -2,6 +2,7 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/lib/pq"
@@ -67,7 +68,40 @@ func (m MovieModel) Insert(movie *Movie) error {
 
 // Fetching a specific record in the movies table
 func (m MovieModel) Get(id int64) (*Movie, error) {
-	return nil, nil
+	// to avoid making an unnecessary database call, we check if the ID is not less than 1
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+
+	// SQL query for retrieving a specific record
+	query := `
+	SELECT id, created_at, title, year, runtime, genres, version
+	FROM movies
+	WHERE id = $1`
+
+	// struct to hold the data returned
+	var movie Movie
+
+	// Use QueryRow() to execute the query, pass the id, and scan the returned data into the struct
+	err := m.DB.QueryRow(query, id).Scan(
+		&movie.ID,
+		&movie.CreatedAt,
+		&movie.Title,
+		&movie.Year,
+		&movie.Runtime,
+		pq.Array(&movie.Genres),
+		&movie.Version,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &movie, nil
 }
 
 // Updating a specific record in the movies table
