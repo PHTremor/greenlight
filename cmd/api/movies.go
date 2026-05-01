@@ -157,3 +157,32 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+// deleteMovieHandler for the "DELETE /v1/movies/:id" endpoint
+func (app *application) deleteMovieHandler(w http.ResponseWriter, r *http.Request) {
+	// extract the ID from the url
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	// delete movie from the database, return 404 not found to client if there's no match
+	err = app.models.Movies.Delete(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+
+		return
+	}
+
+	// return a 200 OK status along with a success message
+	err = app.writeJSON(w, http.StatusOK, envelope{"movie": "movie successfuly deleted"}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
