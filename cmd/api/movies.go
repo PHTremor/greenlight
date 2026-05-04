@@ -116,11 +116,12 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// a struct to hold the expected values from the client
+	// we use pointer fields to allow partial updates, if fields are nil then the client didn't provide a value
 	var input struct {
-		Title   string       `json:"title"`
-		Year    int32        `json:"year"`
-		Runtime data.Runtime `json:"runtime"`
-		Genres  []string     `json:"genres"`
+		Title   *string       `json:"title"`
+		Year    *int32        `json:"year"`
+		Runtime *data.Runtime `json:"runtime"`
+		Genres  []string      `json:"genres"`
 	}
 
 	// read the json's body into the input struct
@@ -130,11 +131,27 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// copy values from the input struct to their respective fields in the movie record
-	movie.Title = input.Title
-	movie.Year = input.Year
-	movie.Runtime = input.Runtime
-	movie.Genres = input.Genres
+	// leave values unchanged if the client didn't provide them in the request body
+	if input.Title != nil {
+		movie.Title = *input.Title
+	}
+
+	if input.Year != nil {
+		movie.Year = *input.Year
+	}
+
+	if input.Runtime != nil {
+		movie.Runtime = *input.Runtime
+	}
+
+	if input.Genres != nil {
+		movie.Genres = input.Genres
+	}
+	// // copy values from the input struct to their respective fields in the movie record
+	// movie.Title = input.Title
+	// movie.Year = input.Year
+	// movie.Runtime = input.Runtime
+	// movie.Genres = input.Genres
 
 	// validate the updated movie records, send a 422 Unprocessable Entity if check fails
 	v := validator.New()
