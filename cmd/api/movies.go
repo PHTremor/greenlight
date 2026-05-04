@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/PHTremor/greenlight.git/internal/data"
 	"github.com/PHTremor/greenlight.git/internal/validator"
@@ -115,6 +116,16 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Round Trip Locking:
+	// if request contains X-Expected-Version header,
+	// verify that the value matches the version in the database.
+	if r.Header.Get("X-Expected-Version") != "" {
+		if strconv.Itoa(int(movie.Version)) != r.Header.Get("X-Expected-Version") {
+			app.editConflictResponse(w, r)
+			return
+		}
+	}
+
 	// a struct to hold the expected values from the client
 	// we use pointer fields to allow partial updates, if fields are nil then the client didn't provide a value
 	var input struct {
@@ -164,7 +175,12 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 	// pass the movie recors to the update() method
 	err = app.models.Movies.Update(movie)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 

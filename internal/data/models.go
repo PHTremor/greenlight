@@ -9,6 +9,7 @@ import (
 // we'll return this in our Get() method if a movie doesnt exist
 var (
 	ErrRecordNotFound = errors.New("record not found")
+	ErrEditConflict   = errors.New("edit conflict")
 )
 
 // a Models struct that wraps other model
