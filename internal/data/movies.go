@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -189,4 +190,70 @@ func (m MovieModel) Delete(id int64) error {
 	}
 
 	return nil
+}
+
+// Fetching a list of records in the movies table
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, Metadata, error) {
+	// SQL query for retrieving a list of records
+	query := fmt.Sprintf(`
+		SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version
+		FROM movies
+		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
+		AND (genres @> $2 OR $2 = '{}')
+		ORDER BY %s %s, id ASC
+		LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
+
+	// context with a 3-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// collect the placeholders in a slice
+	args := []any{title, pq.Array(genres), filters.limit(), filters.offset()}
+
+	// Use QueryContext() to execute the query, pass the context and parameters, and scan the returned data into a slice of Movie structs
+	rows, err := m.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	// defer a call to rows.Close() to ensure the result set is closed
+	// before GetAll() returns to prevent memory leaks
+	defer rows.Close()
+
+	totalRecords := 0
+	// initialize an empty slice to hold the movie data
+	movies := []*Movie{}
+
+	// iterate over the rows in the result set
+	for rows.Next() {
+		// create a new Movie struct to hold the data for the current row
+		var movie Movie
+
+		// scan the values from the current row into the Movie struct
+		err := rows.Scan(
+			&totalRecords,
+			&movie.ID,
+			&movie.CreatedAt,
+			&movie.Title,
+			&movie.Year,
+			&movie.Runtime,
+			pq.Array(&movie.Genres),
+			&movie.Version,
+		)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+
+		movies = append(movies, &movie)
+	}
+
+	// use rows.Err() to check for any error that occurred during the iteration
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	// generate metadata
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+
+	return movies, metadata, nil
 }

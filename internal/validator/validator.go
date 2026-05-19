@@ -26,9 +26,9 @@ func (v *Validator) Valid() bool {
 	return len(v.Errors) == 0
 }
 
-// addError add an entry to the map
+// AddError add an entry to the map
 // as long as the key doesn't already exist
-func (v *Validator) addError(key, message string) {
+func (v *Validator) AddError(key, message string) {
 	if _, exits := v.Errors[key]; !exits {
 		v.Errors[key] = message
 	}
@@ -37,7 +37,7 @@ func (v *Validator) addError(key, message string) {
 // Check adds an error entry to the map only if a validation check is not okay
 func (v *Validator) Check(ok bool, key, message string) {
 	if !ok {
-		v.addError(key, message)
+		v.AddError(key, message)
 	}
 }
 
