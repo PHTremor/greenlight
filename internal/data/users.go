@@ -11,9 +11,9 @@ import (
 	"github.com/PHTremor/greenlight.git/internal/validator"
 )
 
-// custom errDuplicateEmail error
+// custom ErrDuplicateEmail error
 var (
-	errDuplicateEmail = errors.New("duplicate email")
+	ErrDuplicateEmail = errors.New("duplicate email")
 )
 
 // Password & Version use json:"-" to prevent the fields appearing in the output
@@ -101,7 +101,7 @@ type UserModel struct {
 // Insert a new user record into the database
 func (m UserModel) Insert(user *User) error {
 	query := `
-	INSERT INTO users (name. email, password_harsh, activated)
+	INSERT INTO users (name, email, password_hash, activated)
 	VALUES ($1,$2,$3,$4)
 	RETURNING id, created_at, version`
 
@@ -116,8 +116,8 @@ func (m UserModel) Insert(user *User) error {
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.Version)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
-			return errDuplicateEmail
+		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key" (23505)`:
+			return ErrDuplicateEmail
 		default:
 			return err
 		}
@@ -183,8 +183,8 @@ func (m UserModel) Update(user *User) error {
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.Version)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
-			return errDuplicateEmail
+		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key" (23505)`:
+			return ErrDuplicateEmail
 		case errors.Is(err, sql.ErrNoRows):
 			return ErrEditConflict
 		default:
