@@ -49,7 +49,6 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 	// insert the user into the database
 	err = app.models.Users.Insert(user)
 	if err != nil {
-		app.logger.Info("error: ", err.Error())
 		switch {
 		// if we get a ErrDuplicateEmail, manually add a message to the vaidator instance
 		// and call the failedValidationResponse() helper
