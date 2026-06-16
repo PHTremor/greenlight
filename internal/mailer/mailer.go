@@ -76,7 +76,7 @@ func (m *Mailer) Send(recipient string, templateFile string, data any) error {
 
 	// use ParseFS method from html/template to parse the required
 	// template file from the embedded file system
-	htmlTmpl, err := ht.New("").ParseFS(templateFS, "/templates/"+templateFile)
+	htmlTmpl, err := ht.New("").ParseFS(templateFS, "templates/"+templateFile)
 	if err != nil {
 		return err
 	}
@@ -111,5 +111,20 @@ func (m *Mailer) Send(recipient string, templateFile string, data any) error {
 	// pass the message to DialAndSend.
 	// This opens a connection to the SMTP server, sends the message, then closes the
 	// connection.
-	return m.client.DialAndSend(msg)
+	// return m.client.DialAndSend(msg)
+
+	// have 3 retries incase of failure
+	for i := 1; i <= 3; i++ {
+		err = m.client.DialAndSend(msg)
+		if err == nil {
+			return nil
+		}
+
+		// if it failured, wait a few ms and retry
+		if i != 3 {
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+
+	return err
 }
