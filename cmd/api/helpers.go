@@ -191,3 +191,18 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int, v *
 
 	return i
 }
+
+// background() runs a function in a goroutine and recovers panics and logs the error message
+func (app *application) background(fn func()) {
+	// Launch a go routine
+	go func() {
+		// Recover any panic
+		if err := recover(); err != nil {
+			app.logger.Error(fmt.Sprintf("%v", err))
+		}
+
+		// execute the function passed as a parameter
+		fn()
+	}()
+
+}

@@ -61,12 +61,13 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// send a welcome email to the user's email address
-	err = app.mailer.Send(user.Email, "user_welcome.tmpl", user)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
+	// use the background helper to execute an anonymous function to send a  welcome email
+	app.background(func() {
+		err = app.mailer.Send(user.Email, "user_welcome.tmpl", user)
+		if err != nil {
+			app.logger.Error(err.Error())
+		}
+	})
 
 	// write a JSON response with the user data along with a 201 status code
 	err = app.writeJSON(w, http.StatusCreated, envelope{"user": user}, nil)
