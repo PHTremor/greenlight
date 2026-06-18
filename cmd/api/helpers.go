@@ -194,8 +194,14 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int, v *
 
 // background() runs a function in a goroutine and recovers panics and logs the error message
 func (app *application) background(fn func()) {
+	// increment the WaitGroup counter
+	app.wg.Add(1)
+
 	// Launch a go routine
 	go func() {
+		// User defer to decrement the WaitGroup counter before the goroutine returns
+		defer app.wg.Done()
+
 		// Recover any panic
 		if err := recover(); err != nil {
 			app.logger.Error(fmt.Sprintf("%v", err))
