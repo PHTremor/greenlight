@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"time"
@@ -164,8 +165,8 @@ func (m UserModel) GetByEmail(email string) (*User, error) {
 func (m UserModel) Update(user *User) error {
 	query := `
 	UPDATE users
-	SET name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1
-	WHERE is = $5 AND version = $6
+	SET name = $1, email = $2, password_hash = $3, activated = $4, version = version+1
+	WHERE id = $5 AND version = $6
 	RETURNING version`
 
 	args := []any{
@@ -193,4 +194,52 @@ func (m UserModel) Update(user *User) error {
 	}
 
 	return nil
+}
+
+// get user details associated with the given token
+func (m UserModel) GetForToken(tokenScope, tokenPlainText string) (*User, error) {
+	// Calculate the SHA-256 hash of the tokenPlainText provided
+	// FYI: returns a byte array with length 32 & not a slice
+	tokenHash := sha256.Sum256([]byte(tokenPlainText))
+
+	// SQL query
+	query := `
+	SELECT users.id, users.created_at, users.name, users.email, users.password_hash, users.activated, users.version
+	FROM users
+	INNER JOIN tokens
+	ON users.id = tokens.user_id
+	WHERE tokens.hash = $1
+	AND tokens.scope = $2
+	AND tokens.expiry > $3`
+
+	// create a slice containing query arguments
+	// FYI: for the token we use the [:] operator to get a slice. pq driver doesn't support arrays
+	args := []any{tokenHash[:], tokenScope, time.Now()}
+
+	var user User
+
+	ctx, cancle := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancle()
+
+	// execute the query, scan the returned values into the User struct
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.Name,
+		&user.Email,
+		&user.Password.hash,
+		&user.Activated,
+		&user.Version)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	// return the matched use
+	return &user, nil
 }
