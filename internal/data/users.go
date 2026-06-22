@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/PHTremor/greenlight.git/internal/validator"
@@ -116,8 +117,11 @@ func (m UserModel) Insert(user *User) error {
 	// check for this error and return the custom ErrDuplicateEmail message
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.Version)
 	if err != nil {
+		// create a pinter to a pq.Err struct
+		var pqErr *pq.Error
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key" (23505)`:
+		case errors.As(err, &pqErr) && pqErr.Code == "23505":
+			// case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key" (23505)`:
 			return ErrDuplicateEmail
 		default:
 			return err
@@ -183,8 +187,10 @@ func (m UserModel) Update(user *User) error {
 
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.Version)
 	if err != nil {
+		var pqErr *pq.Error
+
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key" (23505)`:
+		case errors.As(err, &pqErr) && pqErr.Code == "23505":
 			return ErrDuplicateEmail
 		case errors.Is(err, sql.ErrNoRows):
 			return ErrEditConflict
