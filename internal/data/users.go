@@ -65,11 +65,13 @@ func (p *password) Matches(plaintextPassword string) (bool, error) {
 	return true, nil
 }
 
+// checks email is not empty and matches our email regex
 func ValidateEmail(v *validator.Validator, email string) {
 	v.Check(email != "", "email", "must be provided")
 	v.Check(validator.Matches(email, validator.EmailRX), "email", "must be a valid email address")
 }
 
+// checks if password is not empty and that it is 8-72 bytes long
 func ValidatePasswordPlainText(v *validator.Validator, password string) {
 	v.Check(password != "", "password", "must be provided")
 	v.Check(len(password) >= 8, "password", "must be at least 8 bytes long")
@@ -134,7 +136,7 @@ func (m UserModel) Insert(user *User) error {
 // Retrieve user details from the database based on the user's email address
 func (m UserModel) GetByEmail(email string) (*User, error) {
 	query := `
-	SELECT is, created_at, name, email, password_hash, activated, version
+	SELECT id, created_at, name, email, password_hash, activated, version
 	FROM users
 	WHERE email = $1`
 

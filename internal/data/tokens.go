@@ -12,16 +12,18 @@ import (
 
 // define constants for the token scope
 const (
-	ScopeActivation = "Activation"
+	ScopeActivation     = "activation"
+	ScopeAuthentication = "authentication"
 )
 
 // a Token struct to hold data for an individual token
+// fields with json:"-" are not included in the JSON marshalled version of the struct
 type Token struct {
-	Plaintext string
-	Hash      []byte
-	UserID    int64
-	Expiry    time.Time
-	Scope     string
+	Plaintext string    `json:"token"`
+	Hash      []byte    `json:"-"`
+	UserID    int64     `json:"-"`
+	Expiry    time.Time `json:"expiry"`
+	Scope     string    `json:"-"`
 }
 
 func generateToken(userID int64, ttl time.Duration, scope string) *Token {
@@ -62,13 +64,13 @@ func (m TokenModel) New(userID int64, ttl time.Duration, scope string) (*Token, 
 // Insert() adds a new token into the tokens table
 func (m TokenModel) Insert(token *Token) error {
 	query := `
-	INSERT INTO tokens (hash, user_id, expiry, scope)
+	INSERT INTO tokens (hash, user_id, expiry, scope) 
 	VALUES ($1, $2, $3, $4)`
 
 	args := []any{token.Hash, token.UserID, token.Expiry, token.Scope}
 
-	ctx, cancle := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	return err
