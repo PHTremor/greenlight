@@ -18,6 +18,10 @@ var (
 	ErrDuplicateEmail = errors.New("duplicate email")
 )
 
+// Declare an anonymous user variable
+// representing an inactivated user without ID, name, email, or password
+var AnonymousUser = &User{}
+
 // Password & Version use json:"-" to prevent the fields appearing in the output
 // when we encode to json
 type User struct {
@@ -28,6 +32,11 @@ type User struct {
 	Password  password  `json:"-"`
 	Activated bool      `json:"activated"`
 	Version   int64     `json:"-"`
+}
+
+// check if a user instance is an anonymous user
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
 }
 
 type password struct {

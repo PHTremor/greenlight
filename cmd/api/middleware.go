@@ -1,13 +1,18 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/tomasen/realip"
 	"golang.org/x/time/rate"
+
+	"github.com/PHTremor/greenlight.git/internal/data"
+	"github.com/PHTremor/greenlight.git/internal/validator"
 )
 
 func (app *application) recoverPanic(next http.Handler) http.Handler {
@@ -108,4 +113,63 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 	// 	next.ServeHTTP(w, r)
 	// })
 
+}
+
+func (app *application) authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// add the "Vary: authorization" header to the response
+		// it indicates to caches that the response might vary based on the value
+		// of the Authorization header in the request
+		w.Header().Add("Vary", "Authorization")
+
+		// retrieve the value of the Authorization header from the request
+		// it returns an empty string "" if not found
+		authorizationHeader := r.Header.Get("Authorization")
+
+		// if there's not Authorization header, use contextSetUser()
+		// to add an anonymous user to the request. Then call the next Handler in the chain & return
+		if authorizationHeader == "" {
+			r = app.contextSetUser(r, data.AnonymousUser)
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// otherwise we expect an Authorization token in the format "Bearer <token>"
+		// if wrong format, return 401 Unauthorized response
+		headerparts := strings.Split(authorizationHeader, " ")
+		if len(headerparts) != 2 || headerparts[0] != "Bearer" {
+			app.invalidAuthenticationTokenResponse(w, r)
+			return
+		}
+
+		// extract the token from the header
+		token := headerparts[1]
+
+		// validate the token
+		v := validator.New()
+
+		// if token is invalid
+		if data.ValidateTokenPlainText(v, token); !v.Valid() {
+			app.invalidAuthenticationTokenResponse(w, r)
+			return
+		}
+
+		// retrieve the user details associated with the Authentication token
+		user, err := app.models.Users.GetForToken(data.ScopeAuthentication, token)
+		if err != nil {
+			switch {
+			case errors.Is(err, data.ErrRecordNotFound):
+				app.invalidAuthenticationTokenResponse(w, r)
+			default:
+				app.serverErrorResponse(w, r, err)
+			}
+			return
+		}
+
+		// add the user details to the request context
+		r = app.contextSetUser(r, user)
+
+		// call the next Handler in the chain
+		next.ServeHTTP(w, r)
+	})
 }
