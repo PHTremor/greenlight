@@ -71,3 +71,28 @@ func (m PermissionModel) AddForUser(userID int64, codes ...string) error {
 	_, err := m.DB.ExecContext(ctx, query, userID, pq.Array(codes))
 	return err
 }
+
+// NOTE: for Scaling Permissions or When your system entities grow,
+// - you should pivot away from hardcoding strings in the application layer.
+// - 1. Database-Driven Default Roles (Recommended)
+// 	- Instead of assigning individual permissions to a user directly,
+// 		assign the user a single default "Role" (e.g., Standard User) in the database.
+// 		How it works: Create a roles table and a roles_permissions join table.
+// 		The Query: Modify your insertion logic to copy permissions associated with a specific role ID.
+// 		The Code: Your Go handler only needs to pass a single role identifier, like "user" or "default"
+// CODE example:
+
+// func (m PermissionModel) AddForUser(userID int64, role string) error {
+// 	query := `
+// 	INSERT INTO users_permissions (user_id, permission_id)
+// 	SELECT $1, permission_id
+// 	FROM roles_permissions
+// 	JOIN roles ON roles.id = roles_permissions.role_id
+// 	WHERE roles.name = $2`
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+// 	defer cancel()
+
+// 	_, err := m.DB.ExecContext(ctx, query, userID, role)
+// 	return err
+// }
