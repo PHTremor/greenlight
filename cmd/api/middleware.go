@@ -239,3 +239,28 @@ func (app *application) requirePermission(code string, next http.HandlerFunc) ht
 	// wrap this middleware with the requireActivatedUser() middleware before returning it
 	return app.requireActivatedUser(fun)
 }
+
+// enables CORS
+func (app *application) enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// add the vary header
+		w.Header().Add("Vary", "Origin")
+
+		// get the value of the request header
+		origin := r.Header.Get("Origin")
+
+		// only run this if there's an Origin request header
+		if origin != "" {
+			// loop through the list of trusted origins and check if any match with the request origin
+			for i := range app.config.cors.trustedOrigins {
+				if origin == app.config.cors.trustedOrigins[i] {
+					// set the response header
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					break
+				}
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}

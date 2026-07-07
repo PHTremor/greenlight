@@ -6,6 +6,7 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +40,9 @@ type config struct {
 		username string
 		password string
 		sender   string
+	}
+	cors struct {
+		trustedOrigins []string
 	}
 }
 
@@ -81,6 +85,13 @@ func main() {
 	flag.StringVar(&cfg.smtp.username, "smtp-username", "af9e1ded4edd88", "SMTP username")
 	flag.StringVar(&cfg.smtp.password, "smtp-password", "ead61f83702b1d", "SMTP password")
 	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "Greenlight <no-reply@greenlight.frankmwale.net>", "SMTP sender")
+
+	// process the -cors-trusted-origind command line flag
+	// split the flag value into a slice based on whitespace characters
+	flag.Func("cors-trusted-origins", "Trusted CORS origns (space separated)", func(val string) error {
+		cfg.cors.trustedOrigins = strings.Fields(val)
+		return nil
+	})
 
 	flag.Parse()
 

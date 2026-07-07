@@ -19,9 +19,11 @@ func (app *application) routes() http.Handler {
 
 	// register HTTP methods, URL patterns, & handler functions
 
+	// handler for a health check
+	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.healthcheckHandler)
+
 	// Handlers for movies
 	router.HandlerFunc(http.MethodGet, "/v1/movies", app.requirePermission("movies:read", app.listMoviesHandler))
-	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.requirePermission("movies:read", app.healthcheckHandler))
 	router.HandlerFunc(http.MethodPost, "/v1/movies", app.requirePermission("movies:write", app.createMovieHandler))
 	router.HandlerFunc(http.MethodGet, "/v1/movies/:id", app.requirePermission("movies:read", app.showMovieHandler))
 	router.HandlerFunc(http.MethodPatch, "/v1/movies/:id", app.requirePermission("movies:write", app.updateMovieHandler))
@@ -37,5 +39,5 @@ func (app *application) routes() http.Handler {
 	// return the httpRouter instance
 	// wrap router with panic recovery, rateLimit(), & authenticate() middlewares
 	// to run for every endpoint! or request
-	return app.recoverPanic(app.rateLimit(app.authenticate(router)))
+	return app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(router))))
 }
