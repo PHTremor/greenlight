@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"database/sql"
+	"expvar"
 	"flag"
 	"log/slog"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -130,6 +132,24 @@ func main() {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
+
+	// publish a new "version" variable in the expvar Handler holding the app's version number
+	expvar.NewString("version").Set(version)
+
+	// publish the number of active goroutines
+	expvar.Publish("goroutines", expvar.Func(func() any {
+		return runtime.NumGoroutine()
+	}))
+
+	// publish the database pool statistics
+	expvar.Publish("database", expvar.Func(func() any {
+		return db.Stats()
+	}))
+
+	// publish the current unix timestamp
+	expvar.Publish("timestamp", expvar.Func(func() any {
+		return time.Now().Unix()
+	}))
 
 	// declare instance of the application struct
 	app := &application{
