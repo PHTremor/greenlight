@@ -43,5 +43,5 @@ func (app *application) routes() http.Handler {
 	// return the httpRouter instance
 	// wrap router with panic recovery, rateLimit(), & authenticate() middlewares
 	// to run for every endpoint! or request
-	return app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(router))))
+	return app.metrics(app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(router)))))
 }
