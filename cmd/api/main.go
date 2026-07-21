@@ -68,7 +68,7 @@ func main() {
 
 	// read the dsn, default to the dev dsn if not provided
 	// postgres://user:password@host/dbname
-	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("GREENLIGHT_DB_DSN"), "PostgreSQL DSN")
+	flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
 
 	// read the db connection pool settings from cmd flags
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")

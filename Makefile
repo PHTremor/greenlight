@@ -1,27 +1,48 @@
-.PHONY: migrate-create migrate-up migrate-down
+# Include variables from the .envrc file
+include .envrc
 
-migrate-create:
-	migrate create -seq -ext=.sql -dir=./migrations $(name)
+## help: print this help message
+.PHONY: help
+help:
+	@echo 'Usage:'
+	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' | sed -e 's/^/ /'
 
-migrate-up:
-	migrate -path=./migrations -database=$(GREENLIGHT_DB_DSN) up
-
-migrate-down:
-	migrate -path=./migrations -database=$(GREENLIGHT_DB_DSN) down $(version)
-
+.PHONY: confirm
 confirm:
 	@echo -n 'Are you sure? [y/N] ' && read ans &&  [ $${ans:-N} = y ] 
 
+## run/api: run the cmd/api application
+.PHONY: run/api
 run/api:
-	@ go run ./cmd/api
+	@ go run ./cmd/api -db-dsn=${GREENLIGHT_DB_DSN}
 
+## db/psql: connect to the database using psql
+.PHONY: psql
 db/psql:
 	psql ${GREENLIGHT_DB_DSN}
 
+## db/migrations/new name=$1: create a new database migration
+.PHONY: db/migrations/new
 db/migrations/new:
 	@echo 'Creating migration files for ${name}...'
 	migrate create -seq -ext=.sql -dir=./migrations ${name}
 
+## db/migrations/up: apply all up database migrations
+.PHONY: db/migrations/up
 db/migrations/up: confirm
 	@echo 'Running up migrations...'
 	migrate -path ./migrations -database ${GREENLIGHT_DB_DSN} up
+
+
+
+.PHONY: migrate-create 
+migrate-create:
+	migrate create -seq -ext=.sql -dir=./migrations $(name)
+
+.PHONY: migrate-up 
+migrate-up:
+	migrate -path=./migrations -database=$(GREENLIGHT_DB_DSN) up
+
+.PHONY: migrate-down
+migrate-down:
+	migrate -path=./migrations -database=$(GREENLIGHT_DB_DSN) down $(version)
