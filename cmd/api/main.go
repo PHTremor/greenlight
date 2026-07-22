@@ -17,9 +17,13 @@ import (
 
 	"github.com/PHTremor/greenlight.git/internal/data"
 	"github.com/PHTremor/greenlight.git/internal/mailer"
+	"github.com/PHTremor/greenlight.git/internal/vcs"
 )
 
-const version = "1.0.0"
+// get version from vcs.Version()
+var (
+	version = vcs.Version()
+)
 
 // config settings
 type config struct {
